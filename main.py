@@ -9,20 +9,22 @@ from torch import optim
 from loss.pan_loss import PANLoss
 from datasets.data import PAN_CTW
 from utils.utilers import get_config
+from utils.logger import Logger
 
 def main():
     config = get_config('./pan-config.yaml')
-    utiler = Utiler(config['train_cfg']['model_save_path'], config['train_cfg']['ckp_path'])
+    logger = Logger(config['train_cfg']['logger_name'])
+    utiler = Utiler(config['train_cfg']['model_save_path'], config['train_cfg']['ckp_path'], logger)
     utiler.apply()
 
     device = config['train_cfg']['device']
     model = PAN(config['backbone'], config['neck_param'], config['head_param'])
-    print(model)
+    logger.log(model)
 
     criterion = PANLoss(config['loss_text_param'], config['loss_kernel_param'], config['loss_emb_params'])
 
     optimizer = optim.Adam(model.parameters(), lr=config['train_cfg']['l_r'])
-    print(config['train_data_cfg'])
+    logger.log(config)
     train_dataset = PAN_CTW(**config['train_data_cfg'])
     train_dataloader = DataLoader(train_dataset, config['train_cfg']['b_s'], num_workers=2, shuffle=True, drop_last=True)
 
@@ -34,9 +36,9 @@ def main():
     else:
         start_epoch = 0
         model.to(device)
-        print(f'No ckp found\ntraining will start from srcatch')
+        logger.log(f'No ckp found\ntraining will start from srcatch')
 
-    trainer = Trainer(config['train_cfg'])
+    trainer = Trainer(config['train_cfg'], config['val_cfg'], logger)
     trainer.run(train_dataloader,
                 val_dataloader,
                 model,

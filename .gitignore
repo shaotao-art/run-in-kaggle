@@ -1,7 +1,9 @@
 .ipynb_checkpoints
 ckp
 sample_out
-test_samples
+# test_samples
 __pycache__
 pretrained
 *pth.tar
+*.ipynb
+tmp.ipynb

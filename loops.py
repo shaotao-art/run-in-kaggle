@@ -6,11 +6,10 @@ from post_processing import pa
 import numpy as np
 from tqdm import tqdm
 import os
-from utils.utilers import get_config
 
 
 
-def train_step(model, batch, criterion, device):
+def train_step(model, batch, criterion, device, train_cfg=None):
     """
     should return a dict with key 'loss' that all the losses are gathered.
     all the other keys in the dict will be printed to the conslo
@@ -57,8 +56,7 @@ def train_step(model, batch, criterion, device):
     return out
 
 
-def valid(dataloader, model, device):
-    config = get_config('./pan-config.yaml')
+def valid(dataloader, model, device, val_config=None):
     with torch.no_grad():
         loop = tqdm(dataloader)
         for sample in loop:
@@ -104,20 +102,20 @@ def valid(dataloader, model, device):
                 ind = label == i
                 points = np.array(np.where(ind)).transpose((1, 0))
 
-                if points.shape[0] < config['test_cfg']['min_area']:
+                if points.shape[0] < val_config['min_area']:
                     label[ind] = 0
                     continue
 
                 score_i = np.mean(score[ind])
-                if score_i < config['test_cfg']['min_score']:
+                if score_i < val_config['min_score']:
                     label[ind] = 0
                     continue
 
 
-                if config['test_cfg']['bbox_type'] == 'rect':
+                if val_config['bbox_type'] == 'rect':
                     rect = cv2.minAreaRect(points[:, ::-1])
                     bbox = cv2.boxPoints(rect) * scale
-                elif config['test_cfg']['bbox_type']  == 'poly':
+                elif val_config['bbox_type']  == 'poly':
                     binary = np.zeros(label.shape, dtype='uint8')
                     binary[ind] = 1
                     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL,
@@ -130,11 +128,11 @@ def valid(dataloader, model, device):
 
             outputs.update(dict(bboxes=bboxes, scores=scores))
             
-            write_result_ctw(img_name, outputs, config['test_cfg']['result_text_path'])
+            write_result_ctw(img_name, outputs, val_config['result_text_path'])
             # print(f'writeing res for {img_name}')
             ori_img = cv2.imread(img_path)
             boxes = [b.reshape(-1, 2) for b in outputs['bboxes']]
             vis_img = cv2.polylines(ori_img, boxes, True, (0, 255, 255), 2)
-            cv2.imwrite(os.path.join(config['test_cfg']['result_img_path'], img_name), vis_img)
+            cv2.imwrite(os.path.join(val_config['result_img_path'], img_name), vis_img)
             # print(f'writeing res img for {img_name}')
 

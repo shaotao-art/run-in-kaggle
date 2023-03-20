@@ -31,15 +31,26 @@ class PAN(nn.Module):
         # backbone
         f = self.backbone(imgs)
 
+        # print('---backbone')
+        # for i in range(len(f)):
+        #     print(f[i].shape)
+
         # reduce channel
         f1 = self.reduce_layer1(f[0])
         f2 = self.reduce_layer2(f[1])
         f3 = self.reduce_layer3(f[2])
         f4 = self.reduce_layer4(f[3])
 
+        # print('---reduce')
+        # print(f1.shape, f2.shape, f3.shape, f4.shape)
+
         # FPEM
         f1_1, f2_1, f3_1, f4_1 = self.fpem1(f1, f2, f3, f4)
         f1_2, f2_2, f3_2, f4_2 = self.fpem2(f1_1, f2_1, f3_1, f4_1)
+
+        # print('---FPEM')
+        # print(f1_1.shape, f2_1.shape, f3_1.shape, f4_1.shape)
+ 
 
         # FFM
         f1 = f1_1 + f1_2
@@ -49,10 +60,17 @@ class PAN(nn.Module):
         f2 = self._upsample(f2, f1.size())
         f3 = self._upsample(f3, f1.size())
         f4 = self._upsample(f4, f1.size())
+
+        # print('---before det')
+        # print(f1.shape, f2.shape, f3.shape, f4.shape)
+
         f = torch.cat((f1, f2, f3, f4), 1)
 
         # detection
         det_out = self.det_head(f)
+        # print('---after-det')
+        # print(det_out.shape)
         
         det_out = self._upsample(det_out, imgs.size())
+        # print(f'final_out: {det_out.shape}')
         return det_out
