@@ -1,7 +1,7 @@
 import math
 import torch.nn as nn
 import torch
-
+import torch.nn.functional as F
 __all__ = ['PA_Head', 'ASF_Head']
 
 class PA_Head(nn.Module):
@@ -38,35 +38,50 @@ class PA_Head(nn.Module):
     
 
 
-class SptialAtten(nn.Module):
-    def __init__(self, in_channel) -> None:
-        super().__init__()
-        self.spatial_atten = nn.Sequential(*[
-            nn.Conv2d(1, 1, 3, 1, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(1, 1, 3, 1, 1),
-            nn.Sigmoid()
-        ])
-        self.out = nn.Sequential(*[
-            nn.Conv2d(in_channel, 1, 3, 1, 1),
-            nn.Sigmoid()
-        ])
-
-
+class Flatten(nn.Module):
     def forward(self, x):
-        input_ = x
-        x = torch.mean(x, dim=1, keepdim=True)
-        x = self.spatial_atten(x)
-        x = x + input_
-        out = self.out(x)
-        return out
+        return x.view(x.size(0), -1)
+
+class ChannelAtten(nn.Module):
+    def __init__(self, num_channel, reduction=16) -> None:
+        super().__init__()
+        self.mlp = nn.Sequential(
+            Flatten(),
+            nn.Linear(num_channel, num_channel//reduction),
+            nn.ReLU(),
+            nn.Linear(num_channel//reduction, num_channel)
+            )
+    
+    def forward(self, x):
+        avg_pool = F.adaptive_avg_pool2d( x, (1, 1))
+        avg_score = self.mlp( avg_pool )
+        max_pool = F.adaptive_max_pool2d( x, (1, 1))
+        max_score = self.mlp( max_pool )
+        sum_score = avg_score + max_score
+        return F.sigmoid(sum_score).unsqueeze(2).unsqueeze(3) * x
+
+class ChannelPool(nn.Module):
+    def forward(self, x):
+        return torch.cat( (torch.max(x, 1)[0].unsqueeze(1), torch.mean(x, 1).unsqueeze(1)), dim=1 )
+
+class SpitialAtten(nn.Module):
+    def __init__(self):
+        super(SpitialAtten, self).__init__()
+        self.compress = ChannelPool()
+        self.spatial = nn.Conv2d(2, 1, 7, 1, 3)
+    def forward(self, x):
+        x_compress = self.compress(x)
+        x_out = self.spatial(x_compress)
+        # print(x_compress.shape, x_out.shape)
+        scale = F.sigmoid(x_out) # broadcasting
+        return x * scale
     
     
 class ASF_Head(nn.Module):
     def __init__(self, in_channel, num_level, hidden_dim, num_class) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(in_channel, in_channel // num_level, 3, 1, 1)
-        self.spatial_atten = SptialAtten(in_channel // 4)
+        self.channel_atten = ChannelAtten(512)
+        self.spitial_atten = SpitialAtten()
         self.out = nn.Sequential(*[
             nn.Conv2d(in_channel, hidden_dim, 3, 1, 1),
             nn.BatchNorm2d(hidden_dim),
@@ -84,8 +99,7 @@ class ASF_Head(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        input_ = x
-        x = self.conv(x)
-        x = input_ * self.spatial_atten(x)
+        x = self.channel_atten(x)
+        x = self.spitial_atten(x)
         out = self.out(x)
         return out
