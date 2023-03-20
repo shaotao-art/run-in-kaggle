@@ -12,7 +12,7 @@ from utils.utilers import get_config
 from utils.logger import Logger
 
 def main():
-    config = get_config('./pan-config.yaml')
+    config = get_config('./asf-config.yaml')
     logger = Logger(config['train_cfg']['logger_name'])
     utiler = Utiler(config['train_cfg']['model_save_path'], config['train_cfg']['ckp_path'], logger)
     utiler.apply()

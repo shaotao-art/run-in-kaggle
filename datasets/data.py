@@ -13,11 +13,11 @@ from utils.utilers import get_config
 
 config = get_config('./pan-config.yaml')
 if config['in_colab'] == True:
-    ctw_root_dir = '/content/ctw-1500'
+    ctw_root_dir = '/kaggle/input/scutctw1500-datasets'
 else:
     ctw_root_dir = '/Users/starfish/Desktop/datasets/ctw-1500'
 ctw_train_data_dir = os.path.join(ctw_root_dir, 'train_images')
-ctw_train_gt_dir = os.path.join(ctw_root_dir, 'train_labels')
+ctw_train_gt_dir = os.path.join(ctw_root_dir, 'ctw1500_train_labels')
 
 ctw_test_data_dir = 'test_samples/imgs/'
 ctw_test_gt_dir = 'test_samples/gt/'
